@@ -1,26 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Shield, Bell, Moon, Sun, ChevronDown, Search, Download, 
-  Filter, Eye, Edit, FileText, Calendar, Clock, Camera,
-  User, ArrowLeft
+  Search, Download, Filter, Eye, Clock, 
+  CheckCircle, XCircle, AlertCircle, ArrowLeft 
 } from "lucide-react";
 import { Link } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "@/components/ThemeProvider";
-import { useLanguage } from "@/components/LanguageProvider";
-import { useTranslation } from "react-i18next";
-import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Navigation } from "@/components/Navigation";
 
 interface Detection {
   id: number;
@@ -38,243 +32,121 @@ interface Detection {
 }
 
 export default function RecognitionLog() {
-  const { t } = useTranslation();
-  const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
-  const { language, setLanguage } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDetection, setSelectedDetection] = useState<Detection | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [notes, setNotes] = useState("");
 
-  // Fetch detections with filters
   const { data: detections = [], isLoading } = useQuery({
-    queryKey: ["/api/detections", { search: searchQuery, status: statusFilter }],
-    queryFn: async () => {
-      let url = "/api/detections";
-      const params = new URLSearchParams();
-      
-      if (statusFilter !== "all") {
-        params.append("status", statusFilter);
-      }
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      
-      const response = await fetch(url);
-      return response.json();
-    },
-    refetchInterval: 30000,
+    queryKey: ["/api/detections"],
   });
 
-  // Fetch faces for name resolution
-  const { data: faces = [] } = useQuery({
-    queryKey: ["/api/faces"],
-  });
-
-  // Update detection mutation
-  const updateDetectionMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: number; updates: any }) => {
-      const response = await apiRequest("PUT", `/api/detections/${id}`, updates);
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status, notes }: { id: number; status: string; notes?: string }) => {
+      const response = await apiRequest(`/api/detections/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, notes }),
+        headers: { "Content-Type": "application/json" },
+      });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/detections"] });
       toast({
-        title: t('success'),
-        description: "Detection updated successfully",
+        title: "Success",
+        description: "Detection status updated successfully",
       });
     },
     onError: (error: any) => {
       toast({
-        title: t('error'),
-        description: error.message,
+        title: "Error",
+        description: error.message || "Failed to update detection",
         variant: "destructive",
       });
     },
   });
 
   const handleViewDetails = (detection: Detection) => {
-    const face = faces.find((f: any) => f.id === detection.faceId);
-    setSelectedDetection({
-      ...detection,
-      face: face ? { name: face.name, tag: face.tag } : undefined,
-    });
-    setNotes(detection.notes || "");
+    setSelectedDetection(detection);
     setIsDetailModalOpen(true);
   };
 
-  const handleUpdateStatus = (id: number, status: string) => {
-    updateDetectionMutation.mutate({
-      id,
-      updates: { status },
-    });
-  };
-
-  const handleSaveNotes = () => {
-    if (selectedDetection) {
-      updateDetectionMutation.mutate({
-        id: selectedDetection.id,
-        updates: { notes },
-      });
-      setIsDetailModalOpen(false);
-    }
+  const handleStatusUpdate = (id: number, status: string, notes?: string) => {
+    updateStatusMutation.mutate({ id, status, notes });
   };
 
   const handleExportCSV = () => {
     const csvData = detections.map((detection: Detection) => {
-      const face = faces.find((f: any) => f.id === detection.faceId);
+      const { face } = detection;
       return {
-        id: detection.id,
-        name: face?.name || "Unknown",
-        tag: face?.tag || "Unknown",
-        camera: `Camera ${detection.cameraId}`,
-        confidence: `${detection.confidence}%`,
-        status: detection.status,
-        detectedAt: new Date(detection.detectedAt).toLocaleString(),
-        notes: detection.notes || "",
+        'Detection ID': detection.id,
+        'Face ID': detection.faceId || 'Unknown',
+        'Name': face?.name || 'Unknown',
+        'Tag': face?.tag || 'N/A',
+        'Camera ID': detection.cameraId,
+        'Confidence': `${(detection.confidence * 100).toFixed(1)}%`,
+        'Status': detection.status,
+        'Detected At': format(new Date(detection.detectedAt), 'yyyy-MM-dd HH:mm:ss'),
+        'Notes': detection.notes || ''
       };
     });
 
-    const csvHeaders = [
-      "ID", "Name", "Tag", "Camera", "Confidence", "Status", "Detected At", "Notes"
-    ];
-
     const csvContent = [
-      csvHeaders.join(","),
-      ...csvData.map(row => Object.values(row).map(val => `"${val}"`).join(","))
-    ].join("\n");
+      Object.keys(csvData[0] || {}).join(','),
+      ...csvData.map(row => Object.values(row).map(value => `"${value}"`).join(','))
+    ].join('\n');
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
+    const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = `recognition-log-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `recognition-log-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
     toast({
-      title: t('success'),
-      description: "Log exported successfully",
+      title: "Success",
+      description: "Detection log exported successfully",
     });
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending':
-        return <Badge className="security-warning text-black">{t('pending')}</Badge>;
-      case 'acknowledged':
-        return <Badge className="security-success text-white">{t('acknowledged')}</Badge>;
-      case 'resolved':
-        return <Badge className="security-success text-white">{t('resolved')}</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
+      case 'acknowledged': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'dismissed': return <XCircle className="h-4 w-4 text-gray-500" />;
+      case 'investigating': return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+      default: return <Clock className="h-4 w-4 text-red-500" />;
     }
   };
 
   const filteredDetections = detections.filter((detection: Detection) => {
-    const face = faces.find((f: any) => f.id === detection.faceId);
-    const name = face?.name || "Unknown";
-    const matchesSearch = searchQuery === "" || 
-      name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      face?.tag?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || detection.status === statusFilter;
+    const matchesSearch = !searchQuery || 
+      detection.face?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      detection.face?.tag?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    return matchesSearch;
+    return matchesStatus && matchesSearch;
   });
 
   return (
     <div className="min-h-screen security-bg">
-      {/* Header */}
-      <header className="security-surface security-border px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Shield className="text-red-500 text-2xl" />
-            <h1 className="text-xl font-semibold security-text-primary">
-              {t('appTitle')}
-            </h1>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            {/* Language Switcher */}
-            <select 
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as 'en' | 'hi')}
-              className="security-surface-secondary security-border rounded px-3 py-1 text-sm security-text-primary"
-            >
-              <option value="en">English</option>
-              <option value="hi">हिंदी</option>
-            </select>
-            
-            {/* Dark/Light Mode Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="security-surface-secondary hover:bg-slate-600"
-            >
-              {theme === "dark" ? (
-                <Sun className="h-5 w-5 security-text-primary" />
-              ) : (
-                <Moon className="h-5 w-5 security-text-primary" />
-              )}
-            </Button>
-            
-            {/* User Menu */}
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center">
-                <span className="text-sm security-text-primary">
-                  {user?.username?.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <span className="text-sm security-text-primary">{user?.username}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={logout}
-                className="security-text-primary"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation */}
-      <nav className="security-surface-secondary security-border px-6 py-3">
-        <div className="flex space-x-8">
-          <Link href="/dashboard" className="security-text-secondary hover:text-white pb-2 transition-colors">
-            {t('dashboard')}
-          </Link>
-          <Link href="/face-gallery" className="security-text-secondary hover:text-white pb-2 transition-colors">
-            {t('faceGallery')}
-          </Link>
-          <a href="#" className="text-white border-b-2 border-red-500 pb-2 font-medium">
-            {t('recognitionLog')}
-          </a>
-          <Link href="/settings" className="security-text-secondary hover:text-white pb-2 transition-colors">
-            {t('settings')}
-          </Link>
-        </div>
-      </nav>
-
+      <Navigation />
       <main className="p-6 max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
-            <Link href="/dashboard">
+            <Link href="/">
               <Button variant="ghost" size="sm" className="security-text-secondary">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Dashboard
               </Button>
             </Link>
             <h1 className="text-3xl font-bold security-text-primary">
-              {t('recognitionLog')}
+              Recognition Log
             </h1>
           </div>
           
@@ -284,7 +156,7 @@ export default function RecognitionLog() {
             disabled={detections.length === 0}
           >
             <Download className="mr-2 h-4 w-4" />
-            {t('exportLogs')}
+            Export Logs
           </Button>
         </div>
 
@@ -297,9 +169,8 @@ export default function RecognitionLog() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="security-text-primary">Search</Label>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                   <Input
@@ -310,142 +181,116 @@ export default function RecognitionLog() {
                   />
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label className="security-text-primary">Status</Label>
+              <div className="w-full md:w-48">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="security-border">
-                    <SelectValue />
+                    <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="acknowledged">Acknowledged</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="dismissed">Dismissed</SelectItem>
+                    <SelectItem value="investigating">Investigating</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              
-              <div className="flex items-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setStatusFilter("all");
-                  }}
-                  className="security-border"
-                >
-                  Clear Filters
-                </Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Detections Table */}
-        <Card className="security-surface security-border">
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="text-center py-12 security-text-secondary">
-                {t('loading')}
-              </div>
-            ) : filteredDetections.length === 0 ? (
-              <div className="text-center py-12 security-text-secondary">
-                No detection records found
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="security-surface-secondary">
-                    <TableHead className="security-text-secondary">Snapshot</TableHead>
-                    <TableHead className="security-text-secondary">Name</TableHead>
-                    <TableHead className="security-text-secondary">Tag</TableHead>
-                    <TableHead className="security-text-secondary">Camera</TableHead>
-                    <TableHead className="security-text-secondary">Confidence</TableHead>
-                    <TableHead className="security-text-secondary">Detected At</TableHead>
-                    <TableHead className="security-text-secondary">Status</TableHead>
-                    <TableHead className="security-text-secondary">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDetections.map((detection: Detection) => {
-                    const face = faces.find((f: any) => f.id === detection.faceId);
-                    return (
-                      <TableRow key={detection.id} className="hover:bg-slate-700">
-                        <TableCell>
-                          <div className="w-12 h-12 bg-slate-600 rounded flex items-center justify-center overflow-hidden">
-                            {detection.snapshotUrl ? (
-                              <img 
-                                src={detection.snapshotUrl} 
-                                alt="Snapshot"
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <Camera className="text-slate-400 h-6 w-6" />
-                            )}
+        {/* Detections List */}
+        {isLoading ? (
+          <div className="text-center security-text-secondary">
+            Loading detections...
+          </div>
+        ) : filteredDetections.length === 0 ? (
+          <Card className="security-surface security-border">
+            <CardContent className="text-center py-12">
+              <p className="security-text-secondary">
+                No detections found matching your criteria.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {filteredDetections.map((detection: Detection) => {
+              const { face } = detection;
+              const detectedTime = format(new Date(detection.detectedAt), 'PPp');
+              
+              return (
+                <Card key={detection.id} className="security-surface security-border">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="relative">
+                          <img
+                            src={detection.snapshotUrl}
+                            alt="Detection snapshot"
+                            className="w-16 h-16 rounded object-cover"
+                          />
+                          <div className="absolute -top-1 -right-1">
+                            {getStatusIcon(detection.status)}
                           </div>
-                        </TableCell>
-                        <TableCell className="font-medium security-text-primary">
-                          {face?.name || "Unknown"}
-                        </TableCell>
-                        <TableCell>
-                          {face ? (
-                            <Badge 
-                              variant={face.tag === 'thief' ? 'destructive' : 'secondary'}
-                              className={face.tag === 'thief' ? 'security-accent-red' : 'bg-orange-600'}
-                            >
-                              {face.tag.toUpperCase()}
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary">UNKNOWN</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="security-text-secondary">
-                          Camera {detection.cameraId}
-                        </TableCell>
-                        <TableCell className="security-text-secondary">
-                          {detection.confidence}%
-                        </TableCell>
-                        <TableCell className="security-text-secondary">
-                          {new Date(detection.detectedAt).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(detection.status)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleViewDetails(detection)}
-                              className="security-text-secondary hover:text-white"
-                            >
-                              <Eye className="h-3 w-3" />
-                            </Button>
-                            {detection.status === 'pending' && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleUpdateStatus(detection.id, 'acknowledged')}
-                                className="text-green-500 hover:text-green-400"
+                        </div>
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h3 className="font-semibold security-text-primary">
+                              {face?.name || 'Unknown Person'}
+                            </h3>
+                            {face?.tag && (
+                              <Badge 
+                                variant="secondary"
+                                className={face.tag === 'thief' ? 'security-accent-red' : 'bg-orange-600'}
                               >
-                                Acknowledge
-                              </Button>
+                                {face.tag.toUpperCase()}
+                              </Badge>
                             )}
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                          <p className="text-sm security-text-secondary">
+                            Camera {detection.cameraId} • {detectedTime}
+                          </p>
+                          <p className="text-sm security-text-secondary">
+                            Confidence: {(detection.confidence * 100).toFixed(1)}%
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Badge 
+                          variant="outline"
+                          className={`
+                            ${detection.status === 'acknowledged' ? 'border-green-500 text-green-500' : ''}
+                            ${detection.status === 'dismissed' ? 'border-gray-500 text-gray-500' : ''}
+                            ${detection.status === 'investigating' ? 'border-yellow-500 text-yellow-500' : ''}
+                            ${detection.status === 'pending' ? 'border-red-500 text-red-500' : ''}
+                          `}
+                        >
+                          {detection.status.replace('_', ' ').toUpperCase()}
+                        </Badge>
+                        
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewDetails(detection)}
+                          className="security-border"
+                        >
+                          <Eye className="mr-1 h-3 w-3" />
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Detail Modal */}
+        {/* Detection Details Modal */}
         <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-          <DialogContent className="max-w-md security-surface security-border">
+          <DialogContent className="max-w-2xl security-surface security-border">
             <DialogHeader>
               <DialogTitle className="security-text-primary">
                 Detection Details
@@ -453,78 +298,88 @@ export default function RecognitionLog() {
             </DialogHeader>
             
             {selectedDetection && (
-              <div className="space-y-4">
-                {/* Snapshot */}
-                <div className="w-full h-48 bg-slate-700 rounded flex items-center justify-center overflow-hidden">
-                  {selectedDetection.snapshotUrl ? (
-                    <img 
-                      src={selectedDetection.snapshotUrl} 
-                      alt="Detection Snapshot"
-                      className="w-full h-full object-cover"
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <img
+                      src={selectedDetection.snapshotUrl}
+                      alt="Detection snapshot"
+                      className="w-full rounded-lg object-cover"
                     />
-                  ) : (
-                    <span className="text-slate-400">No snapshot available</span>
-                  )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-semibold security-text-primary mb-2">
+                        Detection Information
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <p className="security-text-secondary">
+                          <span className="font-medium">ID:</span> {selectedDetection.id}
+                        </p>
+                        <p className="security-text-secondary">
+                          <span className="font-medium">Name:</span> {selectedDetection.face?.name || 'Unknown'}
+                        </p>
+                        <p className="security-text-secondary">
+                          <span className="font-medium">Tag:</span> {selectedDetection.face?.tag || 'N/A'}
+                        </p>
+                        <p className="security-text-secondary">
+                          <span className="font-medium">Camera:</span> {selectedDetection.cameraId}
+                        </p>
+                        <p className="security-text-secondary">
+                          <span className="font-medium">Confidence:</span> {(selectedDetection.confidence * 100).toFixed(1)}%
+                        </p>
+                        <p className="security-text-secondary">
+                          <span className="font-medium">Detected:</span> {format(new Date(selectedDetection.detectedAt), 'PPp')}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium security-text-primary mb-2">
+                        Status Actions
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleStatusUpdate(selectedDetection.id, 'acknowledged')}
+                          className="bg-green-600 hover:bg-green-700"
+                          disabled={updateStatusMutation.isPending}
+                        >
+                          <CheckCircle className="mr-1 h-3 w-3" />
+                          Acknowledge
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleStatusUpdate(selectedDetection.id, 'dismissed')}
+                          className="bg-gray-600 hover:bg-gray-700"
+                          disabled={updateStatusMutation.isPending}
+                        >
+                          <XCircle className="mr-1 h-3 w-3" />
+                          Dismiss
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleStatusUpdate(selectedDetection.id, 'investigating')}
+                          className="bg-yellow-600 hover:bg-yellow-700"
+                          disabled={updateStatusMutation.isPending}
+                        >
+                          <AlertCircle className="mr-1 h-3 w-3" />
+                          Investigate
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="space-y-2 security-text-primary">
-                  <p>
-                    <strong>Name:</strong> {selectedDetection.face?.name || "Unknown"}
-                  </p>
-                  <p>
-                    <strong>Tag:</strong>{' '}
-                    {selectedDetection.face ? (
-                      <Badge 
-                        variant={selectedDetection.face.tag === 'thief' ? 'destructive' : 'secondary'}
-                        className={selectedDetection.face.tag === 'thief' ? 'security-accent-red' : 'bg-orange-600'}
-                      >
-                        {selectedDetection.face.tag.toUpperCase()}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">UNKNOWN</Badge>
-                    )}
-                  </p>
-                  <p>
-                    <strong>Camera:</strong> Camera {selectedDetection.cameraId}
-                  </p>
-                  <p>
-                    <strong>Confidence:</strong> {selectedDetection.confidence}%
-                  </p>
-                  <p>
-                    <strong>Detected At:</strong> {new Date(selectedDetection.detectedAt).toLocaleString()}
-                  </p>
-                  <p>
-                    <strong>Status:</strong> {getStatusBadge(selectedDetection.status)}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="security-text-primary">Notes</Label>
-                  <Textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Add notes about this detection..."
-                    className="security-border"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex space-x-2">
-                  <Button
-                    onClick={handleSaveNotes}
-                    className="flex-1 security-accent-red hover:security-accent-red"
-                    disabled={updateDetectionMutation.isPending}
-                  >
-                    {updateDetectionMutation.isPending ? "Saving..." : "Save Notes"}
-                  </Button>
-                  <Button
-                    onClick={() => setIsDetailModalOpen(false)}
-                    variant="secondary"
-                    className="flex-1 security-surface-secondary"
-                  >
-                    Close
-                  </Button>
-                </div>
+                {selectedDetection.notes && (
+                  <div>
+                    <h4 className="font-medium security-text-primary mb-2">Notes</h4>
+                    <p className="security-text-secondary bg-slate-100 dark:bg-slate-800 p-3 rounded">
+                      {selectedDetection.notes}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>

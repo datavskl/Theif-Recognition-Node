@@ -14,12 +14,13 @@ import {
   Save, TestTube, Settings as SettingsIcon
 } from "lucide-react";
 import { Link } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
+// import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/components/ThemeProvider";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Navigation } from "@/components/Navigation";
 
 interface Settings {
   id: number;
@@ -41,7 +42,7 @@ interface Camera {
 
 export default function Settings() {
   const { t } = useTranslation();
-  const { user, logout } = useAuth();
+  // const { user, logout } = useAuth(); // Removed for no-auth version
   const { theme, setTheme } = useTheme();
   const { language, setLanguage } = useLanguage();
   const { toast } = useToast();
@@ -197,92 +198,19 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen security-bg">
-      {/* Header */}
-      <header className="security-surface security-border px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Shield className="text-red-500 text-2xl" />
-            <h1 className="text-xl font-semibold security-text-primary">
-              {t('appTitle')}
-            </h1>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            {/* Language Switcher */}
-            <select 
-              value={language}
-              onChange={(e) => handleLanguageChange(e.target.value)}
-              className="security-surface-secondary security-border rounded px-3 py-1 text-sm security-text-primary"
-            >
-              <option value="en">English</option>
-              <option value="hi">हिंदी</option>
-            </select>
-            
-            {/* Dark/Light Mode Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleThemeChange(theme === "dark" ? "light" : "dark")}
-              className="security-surface-secondary hover:bg-slate-600"
-            >
-              {theme === "dark" ? (
-                <Sun className="h-5 w-5 security-text-primary" />
-              ) : (
-                <Moon className="h-5 w-5 security-text-primary" />
-              )}
-            </Button>
-            
-            {/* User Menu */}
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center">
-                <span className="text-sm security-text-primary">
-                  {user?.username?.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <span className="text-sm security-text-primary">{user?.username}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={logout}
-                className="security-text-primary"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation */}
-      <nav className="security-surface-secondary security-border px-6 py-3">
-        <div className="flex space-x-8">
-          <Link href="/dashboard" className="security-text-secondary hover:text-white pb-2 transition-colors">
-            {t('dashboard')}
-          </Link>
-          <Link href="/face-gallery" className="security-text-secondary hover:text-white pb-2 transition-colors">
-            {t('faceGallery')}
-          </Link>
-          <Link href="/recognition-log" className="security-text-secondary hover:text-white pb-2 transition-colors">
-            {t('recognitionLog')}
-          </Link>
-          <a href="#" className="text-white border-b-2 border-red-500 pb-2 font-medium">
-            {t('settings')}
-          </a>
-        </div>
-      </nav>
-
-      <main className="p-6 max-w-7xl mx-auto">
+      <Navigation />
+      <main className="p-6 max-w-4xl mx-auto">
         {/* Page Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
-            <Link href="/dashboard">
+            <Link href="/">
               <Button variant="ghost" size="sm" className="security-text-secondary">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Dashboard
               </Button>
             </Link>
             <h1 className="text-3xl font-bold security-text-primary">
-              {t('settings')}
+              Settings
             </h1>
           </div>
         </div>

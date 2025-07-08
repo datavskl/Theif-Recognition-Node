@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { CameraFeed } from "@/components/CameraFeed";
 import { AlertModal } from "@/components/AlertModal";
+import { Navigation } from "@/components/Navigation";
 // import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/components/ThemeProvider";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -169,17 +170,17 @@ export default function Dashboard() {
       {/* Navigation */}
       <nav className="security-surface-secondary security-border px-6 py-3">
         <div className="flex space-x-8">
-          <a href="#" className="text-white border-b-2 border-red-500 pb-2 font-medium">
-            {t('dashboard')}
+          <a href="/" className="text-white border-b-2 border-red-500 pb-2 font-medium">
+            Dashboard
           </a>
-          <a href="#" className="security-text-secondary hover:text-white pb-2 transition-colors">
-            {t('faceGallery')}
+          <a href="/face-gallery" className="security-text-secondary hover:text-white pb-2 transition-colors">
+            Face Gallery
           </a>
-          <a href="#" className="security-text-secondary hover:text-white pb-2 transition-colors">
-            {t('recognitionLog')}
+          <a href="/recognition-log" className="security-text-secondary hover:text-white pb-2 transition-colors">
+            Recognition Log
           </a>
-          <a href="#" className="security-text-secondary hover:text-white pb-2 transition-colors">
-            {t('settings')}
+          <a href="/settings" className="security-text-secondary hover:text-white pb-2 transition-colors">
+            Settings
           </a>
         </div>
       </nav>

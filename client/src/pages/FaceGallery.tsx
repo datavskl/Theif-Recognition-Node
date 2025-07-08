@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { extractFaceDescriptor } from "@/lib/faceApi";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { Navigation } from "@/components/Navigation";
 
 interface Face {
   id: number;
@@ -187,7 +188,9 @@ export default function FaceGallery() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="min-h-screen security-bg">
+      <Navigation />
+      <main className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold security-text-primary">
           {t('faceGallery')}
@@ -372,6 +375,7 @@ export default function FaceGallery() {
           ))}
         </div>
       )}
+      </main>
     </div>
   );
 }

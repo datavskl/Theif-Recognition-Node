@@ -244,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/faces/:id", authenticateToken, requireAdmin, async (req, res) => {
+  app.put("/api/faces/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
@@ -258,7 +258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/faces/:id", authenticateToken, requireAdmin, async (req, res) => {
+  app.delete("/api/faces/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const face = await storage.getFace(id);
@@ -323,7 +323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/detections/:id", authenticateToken, async (req, res) => {
+  app.put("/api/detections/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
@@ -369,13 +369,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Settings routes
-  app.get("/api/settings", authenticateToken, async (req: any, res) => {
+  app.get("/api/settings", async (req: any, res) => {
     try {
-      const settings = await storage.getUserSettings(req.user.id);
+      // For no-auth version, use a default user ID of 1
+      const userId = 1;
+      const settings = await storage.getUserSettings(userId);
       if (!settings) {
         // Create default settings if none exist
         const defaultSettings = await storage.createSettings({
-          userId: req.user.id,
+          userId: userId,
           language: "en",
           theme: "dark",
           alertSound: true,
@@ -390,10 +392,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/settings", authenticateToken, async (req: any, res) => {
+  app.put("/api/settings", async (req: any, res) => {
     try {
       const updates = req.body;
-      const settings = await storage.updateSettings(req.user.id, updates);
+      // For no-auth version, use a default user ID of 1
+      const userId = 1;
+      const settings = await storage.updateSettings(userId, updates);
       if (!settings) {
         return res.status(404).json({ message: "Settings not found" });
       }
