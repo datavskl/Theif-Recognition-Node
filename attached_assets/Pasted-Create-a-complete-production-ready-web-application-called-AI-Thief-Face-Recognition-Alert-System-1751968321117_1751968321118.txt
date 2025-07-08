@@ -1,0 +1,77 @@
+Create a complete, production-ready web application called "AI Thief Face Recognition & Alert System" for supermarkets and small vendors. The app should use live camera feeds to detect known thieves in real-time using face recognition and trigger instant alerts (sound, pop-up, and notification). Detected events should be logged with photo evidence and details for future review.
+
+**Key Features and Requirements:**
+
+1. **Authentication**
+   - Login and registration (email/password).
+   - Basic roles: Admin, Staff.
+   - Only authenticated users can access main features.
+
+2. **Onboarding & Camera Setup**
+   - On first login, guide user to add/configure their webcam or an RTSP/IP CCTV camera.
+   - Allow multiple cameras; show live video previews.
+
+3. **Dashboard**
+   - Show live camera feed(s) with AI face detection overlays (bounding boxes, name/tag).
+   - Quick stats (alerts today, cameras online, last alert).
+   - Alert panel for new detections, with acknowledge/dismiss buttons.
+
+4. **Face Database ("Thief Gallery")**
+   - Admins can add/edit/delete profiles of known thieves:
+     - Upload/capture multiple face photos per profile.
+     - Enter name, notes, tags ("thief", "watchlist", etc.).
+   - Search and filter by name/tag.
+   - Faces should be stored securely.
+
+5. **Real-Time Face Recognition**
+   - Continuously process camera feeds using an open-source face recognition library (e.g., face-api.js for browser or DeepFace/face_recognition with a Python backend).
+   - Compare detected faces with the database.
+   - If a match, trigger a sound alert, show a popup, and create a log entry with a snapshot, name, camera, timestamp.
+
+6. **Recognition Log**
+   - Table of all detected events (snapshot, name/tag, date/time, camera location).
+   - Filter/search logs.
+   - Export logs as CSV/PDF.
+   - Option to add incident notes to a log entry.
+
+7. **Alert & Notification System**
+   - Sound and on-screen popup alerts for new detections.
+   - Option for staff to receive notifications (push or email).
+   - Allow admin to configure alert preferences in Settings.
+
+8. **Settings**
+   - Manage cameras (add, remove, test connection).
+   - Notification and alert preferences.
+   - Manage users/roles (invite staff, remove user).
+   - Data privacy options: retention policy, export/delete all data.
+
+9. **Accessibility & Design**
+   - Modern, responsive UI (React, Next.js, or similar).
+   - Large, high-contrast buttons and icons for ease of use.
+   - Language selector for multi-language support.
+   - Dark/light mode toggle.
+
+10. **Security**
+    - Encrypt sensitive data (user info, face images).
+    - Role-based access control.
+    - Prevent unauthorized access.
+
+**Tech Stack Guidance:**
+- **Frontend:** React.js (preferred), Next.js or Vite + React.
+- **Backend:** Node.js (Express/Fastify) or Python (Flask/FastAPI).
+- **Database:** SQLite or PostgreSQL.
+- **Face Recognition:** Use face-api.js (browser JS), or DeepFace/face_recognition if backend is Python.
+- **Camera Integration:** For browser, use getUserMedia; for IP cams, allow RTSP/HTTP streaming via backend proxy.
+- **Deployment:** App must run on Replit (all-in-one monorepo or full-stack template).
+
+**User Flow:**
+- User registers/logs in → Onboarding guides camera setup → Dashboard shows live feed → Admin uploads thief faces → App runs real-time detection → Alerts and logs events → Users review logs and manage settings.
+
+**Optional Advanced:**
+- Community Watch: Option for admins to share thief profiles or alerts with other stores (invite/join network, strict privacy controls).
+
+**Notes:**
+- Prioritize reliability, simplicity, and privacy.
+- Use clear folder structure and document setup steps in README.
+
+Build the above app in a single Replit project, using open-source libraries where possible, and prefill with mock data for easy demo.

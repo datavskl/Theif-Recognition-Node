@@ -1,0 +1,87 @@
+Build a fullstack, production-ready web application called **"AI Thief Face Recognition & Alert System"** for supermarkets and small vendors.  
+The app must use live camera feeds to recognize known thieves from a face image gallery in real time, trigger instant alerts (sound, popup, notification), and log each event with evidence.  
+**Use only open-source tools and libraries, and make sure everything works on Replit.**
+
+**Requirements:**
+
+1. **Authentication**
+   - User registration and login (email/password)
+   - Roles: Admin and Staff (role-based access to features)
+
+2. **Onboarding & Camera Setup**
+   - On first login, guide users to add and test webcam or IP camera
+   - Use the browser’s webcam (getUserMedia) for MVP, allow multiple cameras if possible
+
+3. **Dashboard**
+   - Live camera feed(s) with face detection and recognition overlays (bounding boxes, thief name/tag)
+   - Quick stats: Number of alerts today, cameras online, last alert
+   - Alert panel for new detections (acknowledge/dismiss options)
+
+4. **Face Gallery (Database of Thieves)**
+   - Admins can add/edit/delete profiles of known thieves
+     - Upload or capture multiple face photos per profile
+     - Name, notes, and tag fields (“thief”, “watchlist”, etc.)
+   - Search and filter face database
+
+5. **Real-Time Face Recognition**
+   - Use **face-api.js** (open-source, TensorFlow.js) in the browser for real-time face detection/recognition
+   - Store face embeddings securely in the backend for robust matching
+   - On detection, match faces with gallery, trigger alert, and log event (with snapshot, thief info, timestamp, camera location)
+
+6. **Recognition Log**
+   - Show a table/list of detection events (snapshot, thief name/tag, date/time, camera)
+   - Filter/search logs, export logs as CSV/PDF
+   - Allow staff to add notes to each log entry
+
+7. **Alert & Notification System**
+   - Play a sound and show popup alerts for matches in real time
+   - (Optionally) Email notifications using open-source mail library like nodemailer
+
+8. **Settings**
+   - Manage cameras (add/remove, test)
+   - Notification preferences
+   - User management (invite/remove users, assign role)
+   - Data retention/privacy (auto-delete logs after X days)
+
+9. **Accessibility & Design**
+   - Use **React.js** for frontend (Vite or Create React App)
+   - **Express.js** for backend API, **SQLite** for database
+   - Modern, responsive UI (mobile and desktop)
+   - Large buttons, clean layout, dark/light mode
+   - Multi-language support (at least English and Hindi, easy to extend)
+
+10. **Security**
+    - Encrypt sensitive user and face data
+    - Use JWT or session authentication
+    - Role-based access to admin features
+
+**App Structure:**
+- `client/` (React frontend: face-api.js, UI, video, gallery, logs, settings)
+- `server/` (Node.js/Express backend: auth, face data storage, logs, API endpoints)
+- `db/` (SQLite database with users, face gallery, logs)
+
+**Open-source Libraries to Use:**
+- face-api.js (face recognition, browser)
+- React, React Router (frontend)
+- Express, SQLite3, bcryptjs, jsonwebtoken, nodemailer (backend)
+- Multer (for photo uploads)
+- dotenv (for config)
+- i18next (for multi-language support)
+
+**User Flow:**
+- Register/login → onboarding/camera setup → dashboard (live feed) → add faces to gallery → app matches faces in real time → alert/log event → users manage logs and settings
+
+**README:**
+- Include setup steps for Replit (install, run server, run client)
+- Mention all used open-source libraries and licenses
+
+**Constraints:**
+- Use only open-source tools
+- Must run in Replit’s standard environment
+- Provide mock data for demo
+
+**Bonus:**
+- Modular folder structure, clean code comments
+- If time, allow community watch: admin can export/share thief gallery JSON with other shops (privacy first)
+
+**Build the above app end-to-end in a single Replit project, ready for live demo.**
