@@ -45,11 +45,7 @@ export default function RecognitionLog() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status, notes }: { id: number; status: string; notes?: string }) => {
-      const response = await apiRequest(`/api/detections/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status, notes }),
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await apiRequest("PATCH", `/api/detections/${id}`, { status, notes });
       return response.json();
     },
     onSuccess: () => {
