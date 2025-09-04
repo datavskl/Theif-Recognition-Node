@@ -6,6 +6,9 @@ import {
   type Detection, type InsertDetection,
   type Settings, type InsertSettings
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, gte, sql, ilike, or } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export interface IStorage {
   // Users
@@ -45,240 +48,239 @@ export interface IStorage {
   updateSettings(userId: number, updates: Partial<Settings>): Promise<Settings | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User> = new Map();
-  private cameras: Map<number, Camera> = new Map();
-  private faces: Map<number, Face> = new Map();
-  private detections: Map<number, Detection> = new Map();
-  private settings: Map<number, Settings> = new Map();
-  private currentUserId = 1;
-  private currentCameraId = 1;
-  private currentFaceId = 1;
-  private currentDetectionId = 1;
-  private currentSettingsId = 1;
-
+export class DatabaseStorage implements IStorage {
   constructor() {
     this.initializeDefaultData();
   }
 
-  private initializeDefaultData() {
-    // Create default admin user
-    const admin: User = {
-      id: this.currentUserId++,
-      username: "admin",
-      email: "admin@example.com",
-      password: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // password
-      role: "admin",
-      createdAt: new Date(),
-    };
-    this.users.set(admin.id, admin);
+  private async initializeDefaultData() {
+    try {
+      // Check if admin user exists
+      const existingAdmin = await this.getUserByEmail("admin@example.com");
+      if (!existingAdmin) {
+        // Create default admin user
+        const hashedPassword = await bcrypt.hash("password", 10);
+        const admin = await this.createUser({
+          username: "admin",
+          email: "admin@example.com",
+          password: hashedPassword,
+          role: "admin",
+        });
 
-    // Create default camera
-    const defaultCamera: Camera = {
-      id: this.currentCameraId++,
-      name: "Main Entrance",
-      location: "Front Door",
-      streamUrl: null,
-      isActive: true,
-      createdAt: new Date(),
-    };
-    this.cameras.set(defaultCamera.id, defaultCamera);
+        // Create default camera
+        await db.insert(cameras).values({
+          name: "Main Entrance",
+          location: "Front Door",
+          isActive: true,
+        });
 
-    // Create default settings for admin
-    const defaultSettings: Settings = {
-      id: this.currentSettingsId++,
-      userId: admin.id,
-      language: "en",
-      theme: "dark",
-      alertSound: true,
-      emailNotifications: false,
-      dataRetentionDays: 30,
-    };
-    this.settings.set(admin.id, defaultSettings);
+        // Create default settings for admin
+        await this.createSettings({
+          userId: admin.id,
+          language: "en",
+          theme: "dark",
+          alertSound: true,
+          emailNotifications: false,
+          dataRetentionDays: 30,
+        });
+      }
+    } catch (error) {
+      // Ignore initialization errors - database might not be ready yet
+      console.warn('Database initialization warning:', error);
+    }
   }
 
   // Users
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const user: User = {
-      ...insertUser,
-      role: insertUser.role || "staff",
-      id: this.currentUserId++,
-      createdAt: new Date(),
-    };
-    this.users.set(user.id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
   async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    const [user] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
   }
 
   // Cameras
   async getCameras(): Promise<Camera[]> {
-    return Array.from(this.cameras.values());
+    return await db.select().from(cameras);
   }
 
   async getCamera(id: number): Promise<Camera | undefined> {
-    return this.cameras.get(id);
+    const [camera] = await db.select().from(cameras).where(eq(cameras.id, id));
+    return camera || undefined;
   }
 
   async createCamera(insertCamera: InsertCamera): Promise<Camera> {
-    const camera: Camera = {
-      ...insertCamera,
-      streamUrl: insertCamera.streamUrl || null,
-      isActive: insertCamera.isActive ?? true,
-      id: this.currentCameraId++,
-      createdAt: new Date(),
-    };
-    this.cameras.set(camera.id, camera);
+    const [camera] = await db
+      .insert(cameras)
+      .values(insertCamera)
+      .returning();
     return camera;
   }
 
   async updateCamera(id: number, updates: Partial<Camera>): Promise<Camera | undefined> {
-    const camera = this.cameras.get(id);
-    if (!camera) return undefined;
-    const updatedCamera = { ...camera, ...updates };
-    this.cameras.set(id, updatedCamera);
-    return updatedCamera;
+    const [camera] = await db
+      .update(cameras)
+      .set(updates)
+      .where(eq(cameras.id, id))
+      .returning();
+    return camera || undefined;
   }
 
   async deleteCamera(id: number): Promise<boolean> {
-    return this.cameras.delete(id);
+    const result = await db
+      .delete(cameras)
+      .where(eq(cameras.id, id));
+    return (result.rowCount || 0) > 0;
   }
 
   // Faces
   async getFaces(): Promise<Face[]> {
-    return Array.from(this.faces.values());
+    return await db.select().from(faces);
   }
 
   async getFace(id: number): Promise<Face | undefined> {
-    return this.faces.get(id);
+    const [face] = await db.select().from(faces).where(eq(faces.id, id));
+    return face || undefined;
   }
 
   async createFace(insertFace: InsertFace): Promise<Face> {
-    const face: Face = {
-      ...insertFace,
-      tag: insertFace.tag || "thief",
-      notes: insertFace.notes || null,
-      id: this.currentFaceId++,
-      createdAt: new Date(),
-    };
-    this.faces.set(face.id, face);
+    const [face] = await db
+      .insert(faces)
+      .values(insertFace)
+      .returning();
     return face;
   }
 
   async updateFace(id: number, updates: Partial<Face>): Promise<Face | undefined> {
-    const face = this.faces.get(id);
-    if (!face) return undefined;
-    const updatedFace = { ...face, ...updates };
-    this.faces.set(id, updatedFace);
-    return updatedFace;
+    const [face] = await db
+      .update(faces)
+      .set(updates)
+      .where(eq(faces.id, id))
+      .returning();
+    return face || undefined;
   }
 
   async deleteFace(id: number): Promise<boolean> {
-    return this.faces.delete(id);
+    const result = await db
+      .delete(faces)
+      .where(eq(faces.id, id));
+    return (result.rowCount || 0) > 0;
   }
 
   async searchFaces(query: string): Promise<Face[]> {
-    const lowerQuery = query.toLowerCase();
-    return Array.from(this.faces.values()).filter(face => 
-      face.name.toLowerCase().includes(lowerQuery) ||
-      face.tag.toLowerCase().includes(lowerQuery) ||
-      (face.notes && face.notes.toLowerCase().includes(lowerQuery))
-    );
+    return await db
+      .select()
+      .from(faces)
+      .where(
+        or(
+          ilike(faces.name, `%${query}%`),
+          ilike(faces.tag, `%${query}%`),
+          ilike(faces.notes, `%${query}%`)
+        )
+      );
   }
 
   // Detections
   async getDetections(): Promise<Detection[]> {
-    return Array.from(this.detections.values()).sort((a, b) => 
-      b.detectedAt.getTime() - a.detectedAt.getTime()
-    );
+    return await db
+      .select()
+      .from(detections)
+      .orderBy(desc(detections.detectedAt));
   }
 
   async getDetection(id: number): Promise<Detection | undefined> {
-    return this.detections.get(id);
+    const [detection] = await db.select().from(detections).where(eq(detections.id, id));
+    return detection || undefined;
   }
 
   async createDetection(insertDetection: InsertDetection): Promise<Detection> {
-    const detection: Detection = {
-      ...insertDetection,
-      status: insertDetection.status || "pending",
-      notes: insertDetection.notes || null,
-      faceId: insertDetection.faceId || null,
-      id: this.currentDetectionId++,
-      detectedAt: new Date(),
-    };
-    this.detections.set(detection.id, detection);
+    const [detection] = await db
+      .insert(detections)
+      .values(insertDetection)
+      .returning();
     return detection;
   }
 
   async updateDetection(id: number, updates: Partial<Detection>): Promise<Detection | undefined> {
-    const detection = this.detections.get(id);
-    if (!detection) return undefined;
-    const updatedDetection = { ...detection, ...updates };
-    this.detections.set(id, updatedDetection);
-    return updatedDetection;
+    const [detection] = await db
+      .update(detections)
+      .set(updates)
+      .where(eq(detections.id, id))
+      .returning();
+    return detection || undefined;
   }
 
   async getRecentDetections(limit = 10): Promise<Detection[]> {
-    const allDetections = await this.getDetections();
-    return allDetections.slice(0, limit);
+    return await db
+      .select()
+      .from(detections)
+      .orderBy(desc(detections.detectedAt))
+      .limit(limit);
   }
 
   async getDetectionsByStatus(status: string): Promise<Detection[]> {
-    return Array.from(this.detections.values()).filter(d => d.status === status);
+    return await db
+      .select()
+      .from(detections)
+      .where(eq(detections.status, status));
   }
 
   async getTodayDetectionCount(): Promise<number> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return Array.from(this.detections.values()).filter(d => 
-      d.detectedAt >= today
-    ).length;
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(detections)
+      .where(gte(detections.detectedAt, today));
+    return result.count;
   }
 
   // Settings
   async getUserSettings(userId: number): Promise<Settings | undefined> {
-    return this.settings.get(userId);
+    const [userSettings] = await db.select().from(settings).where(eq(settings.userId, userId));
+    return userSettings || undefined;
   }
 
   async createSettings(insertSettings: InsertSettings): Promise<Settings> {
-    const settings: Settings = {
-      ...insertSettings,
-      language: insertSettings.language || "en",
-      theme: insertSettings.theme || "dark",
-      alertSound: insertSettings.alertSound ?? true,
-      emailNotifications: insertSettings.emailNotifications ?? false,
-      dataRetentionDays: insertSettings.dataRetentionDays || 30,
-      id: this.currentSettingsId++,
-    };
-    this.settings.set(settings.userId, settings);
-    return settings;
+    const [userSettings] = await db
+      .insert(settings)
+      .values(insertSettings)
+      .returning();
+    return userSettings;
   }
 
   async updateSettings(userId: number, updates: Partial<Settings>): Promise<Settings | undefined> {
-    const settings = this.settings.get(userId);
-    if (!settings) return undefined;
-    const updatedSettings = { ...settings, ...updates };
-    this.settings.set(userId, updatedSettings);
-    return updatedSettings;
+    const [userSettings] = await db
+      .update(settings)
+      .set(updates)
+      .where(eq(settings.userId, userId))
+      .returning();
+    return userSettings || undefined;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
