@@ -122,7 +122,7 @@ export function findFaceMatches(
   return matches.sort((a, b) => a.distance - b.distance);
 }
 
-export async function captureSnapshot(videoElement: HTMLVideoElement): Promise<string> {
+export async function captureSnapshot(videoElement: HTMLVideoElement): Promise<Blob> {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   
@@ -135,12 +135,12 @@ export async function captureSnapshot(videoElement: HTMLVideoElement): Promise<s
   
   context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
   
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) {
-        resolve(URL.createObjectURL(blob));
+        resolve(blob);
       } else {
-        throw new Error('Failed to capture snapshot');
+        reject(new Error('Failed to capture snapshot'));
       }
     }, 'image/jpeg', 0.8);
   });

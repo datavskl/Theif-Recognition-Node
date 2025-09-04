@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { detectFaces, findFaceMatches, captureSnapshot, FaceDetection } from "@/lib/faceApi";
 import { apiRequest } from "@/lib/queryClient";
+import type { Face } from "@shared/schema";
 
 interface DetectedFace {
   box: {
@@ -28,7 +29,7 @@ export function useFaceRecognition(
   const lastDetectionTimeRef = useRef<number>(0);
 
   // Get face database
-  const { data: faceDatabase = [] } = useQuery({
+  const { data: faceDatabase = [] } = useQuery<Face[]>({
     queryKey: ["/api/faces"],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -48,7 +49,7 @@ export function useFaceRecognition(
         const facesWithMatches: DetectedFace[] = [];
 
         for (const face of faces) {
-          const matches = findFaceMatches(face.descriptor, faceDatabase, 0.6);
+          const matches = findFaceMatches(face.descriptor, faceDatabase as Array<{ id: number; name: string; tag: string; faceEmbedding: number[] }>, 0.6);
           const bestMatch = matches[0];
 
           const detectedFace: DetectedFace = {
@@ -74,23 +75,33 @@ export function useFaceRecognition(
               
               try {
                 // Capture snapshot
-                const snapshotUrl = await captureSnapshot(videoRef.current);
+                const snapshotBlob = await captureSnapshot(videoRef.current);
                 
-                // Create detection record
-                const detectionData = {
-                  faceId: bestMatch.faceId,
-                  cameraId: 1, // Default camera ID
-                  snapshotUrl,
-                  confidence: bestMatch.confidence,
-                  status: 'pending',
-                };
-
-                // Send to backend (you would upload the actual image file here)
-                await apiRequest("POST", "/api/detections", detectionData);
+                // Create FormData for file upload
+                const formData = new FormData();
+                formData.append('snapshot', snapshotBlob, 'snapshot.jpg');
+                formData.append('faceId', bestMatch.faceId.toString());
+                formData.append('cameraId', '1'); // Default camera ID
+                formData.append('confidence', Math.round(bestMatch.confidence).toString());
+                
+                // Upload to backend
+                const response = await fetch('/api/detections', {
+                  method: 'POST',
+                  body: formData,
+                });
+                
+                if (!response.ok) {
+                  throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const detection = await response.json();
+                
+                // Create snapshot URL for display
+                const snapshotUrl = URL.createObjectURL(snapshotBlob);
 
                 // Trigger alert
                 onDetection({
-                  id: Date.now(), // Temporary ID
+                  id: detection.id,
                   name: bestMatch.name,
                   tag: bestMatch.tag,
                   camera: "Main Entrance",
