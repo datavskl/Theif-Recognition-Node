@@ -10,7 +10,6 @@ import {
   Camera, Download, UserPlus, ArrowRight 
 } from "lucide-react";
 import { CameraFeed } from "@/components/CameraFeed";
-import { AlertModal } from "@/components/AlertModal";
 import { Navigation } from "@/components/Navigation";
 // import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/components/ThemeProvider";
@@ -26,7 +25,6 @@ export default function Dashboard() {
   const { toast } = useToast();
   
   const [currentAlert, setCurrentAlert] = useState<any>(null);
-  const [alertModalOpen, setAlertModalOpen] = useState(false);
 
   // Fetch dashboard data
   const { data: stats } = useQuery({
@@ -46,40 +44,13 @@ export default function Dashboard() {
     audio.play().catch(console.error);
     
     setCurrentAlert(detection);
-    setAlertModalOpen(true);
     
-    toast({
-      title: t('thiefDetected'),
-      description: `${detection.name} detected at ${detection.camera}`,
-      variant: "destructive",
-    });
+    // Auto-dismiss red alert box after 5 seconds
+    setTimeout(() => {
+      setCurrentAlert(null);
+    }, 5000);
   };
 
-  const handleAcknowledgeAlert = async (id: number) => {
-    // Update detection status
-    try {
-      // await apiRequest("PUT", `/api/detections/${id}`, { status: "acknowledged" });
-      toast({
-        title: t('success'),
-        description: "Alert acknowledged",
-      });
-    } catch (error) {
-      console.error('Error acknowledging alert:', error);
-    }
-  };
-
-  const handleDismissAlert = async (id: number) => {
-    // Update detection status
-    try {
-      // await apiRequest("PUT", `/api/detections/${id}`, { status: "dismissed" });
-      toast({
-        title: t('success'),
-        description: "Alert dismissed",
-      });
-    } catch (error) {
-      console.error('Error dismissing alert:', error);
-    }
-  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -186,14 +157,13 @@ export default function Dashboard() {
       </nav>
 
       <main className="p-6 max-w-7xl mx-auto">
-        {/* Alert Modal */}
-        <AlertModal
-          isOpen={alertModalOpen}
-          onClose={() => setAlertModalOpen(false)}
-          detection={currentAlert}
-          onAcknowledge={handleAcknowledgeAlert}
-          onDismiss={handleDismissAlert}
-        />
+        {/* Red Alert Box */}
+        {currentAlert && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+            <div className="bg-red-600 w-32 h-32 rounded-lg shadow-2xl animate-pulse border-4 border-red-400">
+            </div>
+          </div>
+        )}
 
         {/* Camera Feed */}
         <CameraFeed onDetection={handleDetection} />
