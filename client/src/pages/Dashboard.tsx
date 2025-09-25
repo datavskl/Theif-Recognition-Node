@@ -157,13 +157,6 @@ export default function Dashboard() {
       </nav>
 
       <main className="p-6 max-w-7xl mx-auto">
-        {/* Red Alert Box */}
-        {currentAlert && (
-          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
-            <div className="bg-red-600 w-32 h-32 rounded-lg shadow-2xl animate-pulse border-4 border-red-400">
-            </div>
-          </div>
-        )}
 
         {/* Camera Feed */}
         <CameraFeed onDetection={handleDetection} />
