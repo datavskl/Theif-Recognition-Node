@@ -32,7 +32,7 @@ export const faces = pgTable("faces", {
 
 export const detections = pgTable("detections", {
   id: serial("id").primaryKey(),
-  faceId: integer("face_id").references(() => faces.id),
+  faceId: integer("face_id").references(() => faces.id, { onDelete: "cascade" }),
   cameraId: integer("camera_id").references(() => cameras.id).notNull(),
   snapshotUrl: text("snapshot_url").notNull(),
   confidence: integer("confidence").notNull(), // 0-100
