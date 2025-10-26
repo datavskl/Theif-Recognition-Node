@@ -59,7 +59,7 @@ The application uses five main tables:
 ## External Dependencies
 
 ### Core Dependencies
-- **@neondatabase/serverless**: PostgreSQL connection for serverless environments
+- **pg**: PostgreSQL client used to connect to Supabase
 - **drizzle-orm**: Type-safe database ORM
 - **face-api.js**: Browser-based face recognition
 - **@tanstack/react-query**: Server state management
@@ -81,7 +81,7 @@ The application is designed for Replit deployment with the following configurati
 - **Development**: `npm run dev` - Runs both client and server with hot reload
 - **Build**: `npm run build` - Creates optimized production bundles
 - **Production**: `npm start` - Serves built application
-- **Database**: Uses environment variable `DATABASE_URL` for PostgreSQL connection
+- **Database**: Uses environment variable `SUPABASE_DB_URL` (with optional `DATABASE_URL` fallback) for Supabase Postgres connection
 - **File Storage**: Local filesystem for uploaded images (uploads/ directory)
 
 The build process creates:
