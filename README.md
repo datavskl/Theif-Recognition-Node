@@ -116,18 +116,17 @@ A comprehensive AI-powered security solution designed for retail businesses to a
 
 ## 📋 Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory. The app now uses Supabase for its Postgres database, so copy the connection string from **Settings → Database** in your Supabase project (use the service role password so Drizzle can manage the schema).
 
 ```env
-DATABASE_URL=postgresql://username:password@localhost:5432/ai_thief_system
-PGHOST=localhost
-PGPORT=5432
-PGUSER=postgres
-PGPASSWORD=your_password
-PGDATABASE=ai_thief_system
+SUPABASE_DB_URL=postgresql://postgres:[service-role-password]@db.[hash].supabase.co:5432/postgres
+# Optional: set to "false" to disable TLS (not recommended for production)
+SUPABASE_DB_SSL=true
 JWT_SECRET=your-super-secret-jwt-key
 NODE_ENV=development
 ```
+
+> **Tip:** If you already have an existing `DATABASE_URL`, it will continue to work as a fallback, but `SUPABASE_DB_URL` is preferred so local and hosted environments clearly reference Supabase.
 
 ## 🔧 Configuration
 
